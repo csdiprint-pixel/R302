@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>302教室線上選位與核實系統</title>
+    <title>302教室線上即時選位與核實系統</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         :root {
@@ -249,7 +249,7 @@
 <body>
 
     <div class="nav-bar">
-        <span>公務人力發展中心選位系統</span>
+        <span>公務人力發展中心選位系統 (即時雲端同步版)</span>
         <button class="nav-btn" id="navToggleBtn" onclick="openLoginModal()">切換至管理後台</button>
     </div>
 
@@ -360,6 +360,9 @@
     </div>
 
 <script>
+    // ⚠️ 請在此填入您的 Firebase 網址 (記得結尾不要帶有斜線 /)
+    const FIREBASE_URL = "YOUR_FIREBASE_URL";
+
     let currentPage = "student"; 
     let activeSeatId = "";      
     let isVerifyVisualOn = false; 
@@ -369,15 +372,69 @@
 
     let dbTitles = JSON.parse(localStorage.getItem("seat_db_titles")) || {};
     let dbRosters = JSON.parse(localStorage.getItem("seat_db_rosters")) || {};
-    let dbFilledData = JSON.parse(localStorage.getItem("seat_db_filled")) || {};
-
+    
     let classHeaderTitle = dbTitles[currentClassID] || "302教室線上選位表 (請由管理員自後台載入班期名冊)";
     if (currentClassID === "") classHeaderTitle = "302教室線上選位表 (請由管理員自後台載入班期名冊)";
     let officialRoster = dbRosters[currentClassID] || [];
-    let studentFilledData = dbFilledData[currentClassID] || {};
+    let studentFilledData = {}; // 即時與雲端同步
 
     function getUrlParam(name) {
         return new URLSearchParams(window.location.search).get(name);
+    }
+
+    // 建立與 Firebase Realtime Database 的長連接監聽，達到跨裝置秒級同步
+    function startRealtimeSync() {
+        if (!currentClassID || FIREBASE_URL === "YOUR_FIREBASE_URL") return;
+        
+        const syncUrl = `${FIREBASE_URL}/classes/${currentClassID}/seats.json`;
+        const eventSource = new EventSource(syncUrl);
+
+        // 如果不支援 SSE，退回使用每2秒自動輪詢以確保相容性
+        if (typeof(EventSource) === "undefined") {
+            setInterval(fetchSeatsDataLegacy, 2000);
+            return;
+        }
+
+        // 當雲端資料庫一有任何變更，全台所有手機、電腦網頁會被瞬間觸發重繪
+        eventSource.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            if (data && data.data) {
+                studentFilledData = data.data;
+            } else if (data === null || data.data === null) {
+                studentFilledData = {};
+            }
+            renderSeatsGrid();
+        };
+
+        // 初次加載時先手動抓取一次
+        fetchSeatsDataLegacy();
+    }
+
+    async function fetchSeatsDataLegacy() {
+        if (!currentClassID || FIREBASE_URL === "YOUR_FIREBASE_URL") return;
+        try {
+            const res = await fetch(`${FIREBASE_URL}/classes/${currentClassID}/seats.json`);
+            const data = await res.json();
+            studentFilledData = data || {};
+            renderSeatsGrid();
+        } catch(e) { console.error("雲端同步連線中..."); }
+    }
+
+    async function updateCloudSeat(seatId, name) {
+        if (!currentClassID || FIREBASE_URL === "YOUR_FIREBASE_URL") return true;
+        try {
+            let url = `${FIREBASE_URL}/classes/${currentClassID}/seats/${seatId}.json`;
+            if (name === null) {
+                await fetch(url, { method: 'DELETE' });
+            } else {
+                await fetch(url, { method: 'PUT', body: JSON.stringify(name) });
+            }
+            await fetchSeatsDataLegacy();
+            return true;
+        } catch (e) {
+            alert("網路連線不穩定，請重新提交。");
+            return false;
+        }
     }
 
     function openLoginModal() {
@@ -449,7 +506,7 @@
         table.innerHTML = html;
     }
 
-    function processRosterText() {
+    async function processRosterText() {
         const text = document.getElementById("rawRosterInput").value;
         if (!text.trim()) { alert("請先貼入名冊文字內容！"); return; }
 
@@ -490,20 +547,18 @@
             });
             officialRoster = Array.from(nameSet);
 
-            if (!dbFilledData[currentClassID]) studentFilledData = {};
-            else studentFilledData = dbFilledData[currentClassID];
-
             dbTitles[currentClassID] = classHeaderTitle;
             dbRosters[currentClassID] = officialRoster;
-            dbFilledData[currentClassID] = studentFilledData;
             localStorage.setItem("seat_db_titles", JSON.stringify(dbTitles));
             localStorage.setItem("seat_db_rosters", JSON.stringify(dbRosters));
-            localStorage.setItem("seat_db_filled", JSON.stringify(dbFilledData));
+
+            // 同步名冊基本資訊至雲端，確保手機端直接抓取
+            if(FIREBASE_URL !== "YOUR_FIREBASE_URL") {
+                await fetch(`${FIREBASE_URL}/classes/${currentClassID}/title.json`, { method: 'PUT', body: JSON.stringify(classHeaderTitle) });
+            }
 
             const baseUrl = window.location.protocol + '//' + window.location.host + window.location.pathname;
             alert(`【開班成功】\n班期 ${currentClassID} 已完成建立！`);
-            
-            // 絕不再帶入任何中文字加密長參數，網址絕對純淨
             window.location.href = `${baseUrl}?class=${currentClassID}`;
 
         } catch (err) {
@@ -511,7 +566,6 @@
         }
     }
 
-    // 徹底鎖定生成規則：只傳網址與六位數代碼，保證二維碼線條精簡、100%成功好掃
     function generateClassQRCode(classId) {
         if(!classId) return;
         const baseUrl = window.location.protocol + '//' + window.location.host + window.location.pathname;
@@ -531,15 +585,15 @@
         });
     }
 
-    function handleSeatClick(seatCode) {
+    async function handleSeatClick(seatCode) {
         if (!currentClassID) {
             alert("目前尚未由後台載入班期。請先由管理員至後台貼入名冊開班！");
             return;
         }
         activeSeatId = seatCode;
         
-        const updatedDbFilled = JSON.parse(localStorage.getItem("seat_db_filled")) || {};
-        studentFilledData = updatedDbFilled[currentClassID] || {};
+        // 點開視窗前，強迫再次去雲端抓最新狀態，防止時間差造成的資訊落後
+        await fetchSeatsDataLegacy();
         const existingName = studentFilledData[seatCode] || "";
         
         document.getElementById("targetSeatLabel").innerText = `座位 ${seatCode}`;
@@ -561,46 +615,46 @@
 
     function closeSelectModal() { document.getElementById("seatModal").style.display = "none"; }
 
-    function clearCurrentSeat() {
+    async function clearCurrentSeat() {
         if (confirm(`確定要取消座位 ${activeSeatId} 的登記嗎？`)) {
-            delete studentFilledData[activeSeatId];
-            dbFilledData[currentClassID] = studentFilledData;
-            localStorage.setItem("seat_db_filled", JSON.stringify(dbFilledData));
-            renderSeatsGrid();
-            closeSelectModal();
-            alert(`座位 ${activeSeatId} 已成功釋放。`);
+            const success = await updateCloudSeat(activeSeatId, null);
+            if(success) {
+                closeSelectModal();
+                alert(`座位 ${activeSeatId} 已成功釋放。`);
+            }
         }
     }
 
-    function saveStudentSeat() {
+    async function saveStudentSeat() {
         const name = document.getElementById("studentName").value.trim();
         if (!name) { alert("請輸入姓名！"); return; }
 
-        const doubleCheckDb = JSON.parse(localStorage.getItem("seat_db_filled")) || {};
-        const latestClassData = doubleCheckDb[currentClassID] || {};
-        
-        if (latestClassData[activeSeatId]) {
-            alert(`【位置已被搶先登記】\n這個座位剛剛已被「${latestClassData[activeSeatId]}」登記了！請重選空位。`);
-            studentFilledData = latestClassData;
-            renderSeatsGrid();
+        // 核心【防搶與防重複機制】直接去雲端主控台進行秒級原子核實
+        if(FIREBASE_URL !== "YOUR_FIREBASE_URL") {
+            const res = await fetch(`${FIREBASE_URL}/classes/${currentClassID}/seats.json`);
+            const latestClassData = await res.json() || {};
+
+            if (latestClassData[activeSeatId]) {
+                alert(`【位置已被搶先登記】\n這個座位剛剛已被「${latestClassData[activeSeatId]}」登記了！請重選空位。`);
+                studentFilledData = latestClassData;
+                renderSeatsGrid();
+                closeSelectModal();
+                return;
+            }
+
+            if (Object.entries(latestClassData).some(([id, n]) => n === name)) {
+                alert(`【禁止重複選位】\n「${name}」您目前已登記過其他座位囉！\n每人限選一位。如欲換位，請先回到原本登記的座位點選「取消原先座位」，釋放後才能改填新空位。`);
+                return;
+            }
+        }
+
+        const success = await updateCloudSeat(activeSeatId, name);
+        if(success) {
             closeSelectModal();
-            return;
         }
-
-        if (Object.entries(latestClassData).some(([id, n]) => n === name)) {
-            alert(`【禁止重複選位】\n「${name}」您目前已登記過其他座位囉！\n每人限選一位。如欲換位，請先回到原本登記的座位點選「取消原先座位」，釋放後才能改填新空位。`);
-            return;
-        }
-
-        studentFilledData[activeSeatId] = name;
-        dbFilledData[currentClassID] = studentFilledData;
-        localStorage.setItem("seat_db_filled", JSON.stringify(dbFilledData));
-        
-        renderSeatsGrid();
-        closeSelectModal();
     }
 
-    function adminForceAssignSeat() {
+    async function adminForceAssignSeat() {
         if (!currentClassID) { alert("請先啟動班期！"); return; }
         const seatId = document.getElementById("modSeatId").value.trim();
         const studentName = document.getElementById("modStudentName").value.trim();
@@ -609,30 +663,26 @@
         if (!/^([1-9]|1[0-2])-([1-9]|10)$/.test(seatId)) { alert("座位格式錯誤 (1-1 到 12-10)！"); return; }
         if (seatId === "12-9" || seatId === "12-10") { alert("不可指派志工座。"); return; }
 
-        studentFilledData[seatId] = studentName;
-        dbFilledData[currentClassID] = studentFilledData;
-        localStorage.setItem("seat_db_filled", JSON.stringify(dbFilledData));
-
-        renderSeatsGrid();
-        document.getElementById("modSeatId").value = "";
-        document.getElementById("modStudentName").value = "";
-        alert(`【後台手動變更】座位 ${seatId} 已寫入為「${studentName}」。`);
+        const success = await updateCloudSeat(seatId, studentName);
+        if(success) {
+            document.getElementById("modSeatId").value = "";
+            document.getElementById("modStudentName").value = "";
+            alert(`【後台手動變更】座位 ${seatId} 已即時寫入雲端為「${studentName}」。`);
+        }
     }
 
-    function adminForceClearSeat() {
+    async function adminForceClearSeat() {
         if (!currentClassID) { alert("請先啟動班期！"); return; }
         const seatId = document.getElementById("modSeatId").value.trim();
         if (!seatId) { alert("請輸入座位編號！"); return; }
         if (!studentFilledData[seatId]) { alert("該位子目前本來就是空位。"); return; }
 
         if (confirm(`確定要強制清除座位 ${seatId} 的「${studentFilledData[seatId]}」嗎？`)) {
-            delete studentFilledData[seatId];
-            dbFilledData[currentClassID] = studentFilledData;
-            localStorage.setItem("seat_db_filled", JSON.stringify(dbFilledData));
-
-            renderSeatsGrid();
-            document.getElementById("modSeatId").value = "";
-            alert(`【後台手動變更】座位 ${seatId} 已強制清空。`);
+            const success = await updateCloudSeat(seatId, null);
+            if(success) {
+                document.getElementById("modSeatId").value = "";
+                alert(`【後台手動變更】座位 ${seatId} 已自雲端強制清空。`);
+            }
         }
     }
 
@@ -675,11 +725,21 @@
         window.print();
     }
 
-    // 核心邏輯修正：只要當前網址帶有有效 class 參數，無論如何重新整理，立即在此初始化生成清晰的二維碼
-    window.onload = function() {
-        renderSeatsGrid();
+    // 網頁開啟時，立刻啟動長連接雲端同步
+    window.onload = async function() {
         if (currentClassID) {
+            // 如果手機端首次進來，先跟雲端抓取最新的班期 Title 名稱
+            if(FIREBASE_URL !== "YOUR_FIREBASE_URL" && !dbTitles[currentClassID]) {
+                try {
+                    const tRes = await fetch(`${FIREBASE_URL}/classes/${currentClassID}/title.json`);
+                    const tData = await tRes.json();
+                    if(tData) classHeaderTitle = tData;
+                } catch(e){}
+            }
+            startRealtimeSync();
             generateClassQRCode(currentClassID);
+        } else {
+            renderSeatsGrid();
         }
     };
 </script>
