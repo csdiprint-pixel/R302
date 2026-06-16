@@ -304,15 +304,7 @@
             <button class="btn-admin-act btn-gray" onclick="clearVerificationStatus()">清除核實燈號</button>
             <button class="btn-admin-act btn-purple" onclick="exportCurrentClassSeats()">🖨️ 匯出當前座位表（存檔）</button>
 
-            <div class="admin-modification-box" style="background-color: #ebf5fb; border-color: #a9dfbf;">
-                <h4 style="margin: 0 0 10px 0; color: #21618c;">🔄 跨裝置資料同步（解決手機與電腦資料互傳）</h4>
-                <p style="font-size: 12px; margin: 0 0 10px 0; color: #555;">一邊貼完名冊後，可用此按鈕導出小檔案傳給其他裝置（或用 LINE 傳給志工手機）直接匯入，即可在多台裝置看到同一個班期與座位！</p>
-                <div style="display: flex; gap: 8px;">
-                    <button class="btn-admin-act btn-blue" style="margin-bottom:0; padding: 8px; font-size:13px; background-color: #2980b9;" onclick="downloadBackupFile()">💾 導出班期資料檔</button>
-                    <button class="btn-admin-act btn-green" style="margin-bottom:0; padding: 8px; font-size:13px; background-color: #27ae60;" onclick="triggerFileInput()">📂 匯入班期資料檔</button>
-                    <input type="file" id="uploadFileControl" style="display: none;" accept=".json" onchange="uploadBackupFile(this)">
-                </div>
-            </div>
+            <div class="report-box" id="adminReport"></div>
 
             <div class="admin-modification-box">
                 <h4 style="margin: 0 0 10px 0; color: #2c3e50;">✍️ 管理員人工座位修正面板</h4>
@@ -380,6 +372,7 @@
     let adminPassword = localStorage.getItem("seat_admin_pwd") || "302"; 
     let currentClassID = getUrlParam("class") || ""; 
 
+    // 從本地庫讀取
     let dbTitles = JSON.parse(localStorage.getItem("seat_db_titles")) || {};
     let dbRosters = JSON.parse(localStorage.getItem("seat_db_rosters")) || {};
     let dbFilledData = JSON.parse(localStorage.getItem("seat_db_filled")) || {};
@@ -514,9 +507,9 @@
             localStorage.setItem("seat_db_filled", JSON.stringify(dbFilledData));
 
             const baseUrl = window.location.protocol + '//' + window.location.host + window.location.pathname;
-            alert(`【開班成功】\n班期 ${currentClassID} 已完成建立！\n網頁將自動導向專屬畫面。`);
+            alert(`【開班成功】\n班期 ${currentClassID} 已完成建立與解析！\n網頁將自動刷新切換。`);
             
-            // 【移除加密參數】：網址回歸最乾淨、最簡短的狀態，QR Code 絕對完美清晰
+            // 網址回歸最乾淨狀態，保證二維碼絕對清晰好掃
             window.location.href = `${baseUrl}?class=${currentClassID}`;
 
         } catch (err) {
@@ -524,7 +517,7 @@
         }
     }
 
-    // 產生標準、乾淨、超好掃描的常規 QR Code
+    // 正確修復：只傳送乾淨的網址參數，二維碼絕對生成成功且清晰
     function generateClassQRCode(classId) {
         const baseUrl = window.location.protocol + '//' + window.location.host + window.location.pathname;
         const targetClassUrl = `${baseUrl}?class=${classId}`;
@@ -533,6 +526,7 @@
         document.getElementById("qrcodeUrl").innerText = targetClassUrl;
         document.getElementById("qrcode").innerHTML = "";
 
+        // 建立最基礎、最高容錯的標準二維碼
         new QRCode(document.getElementById("qrcode"), {
             text: targetClassUrl,
             width: 160,
@@ -541,57 +535,6 @@
             colorLight : "#ffffff",
             correctLevel : QRCode.CorrectLevel.M
         });
-    }
-
-    // 💾 資料互傳備份下載機制
-    function downloadBackupFile() {
-        if (!currentClassID) { alert("目前沒有開班資料可供導出！"); return; }
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({
-            classID: currentClassID,
-            title: classHeaderTitle,
-            roster: officialRoster,
-            seats: studentFilledData
-        }));
-        const downloadAnchor = document.createElement('a');
-        downloadAnchor.setAttribute("href", dataStr);
-        downloadAnchor.setAttribute("download", `302_seats_${currentClassID}.json`);
-        document.body.appendChild(downloadAnchor);
-        downloadAnchor.click();
-        downloadAnchor.remove();
-    }
-
-    function triggerFileInput() { document.getElementById("uploadFileControl").click(); }
-
-    // 📂 跨裝置檔案讀取恢復機制
-    function uploadBackupFile(input) {
-        const file = input.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            try {
-                const imported = JSON.parse(e.target.result);
-                if (!imported.classID || !imported.title) { alert("無效的班期檔案結構！"); return; }
-                
-                currentClassID = imported.classID;
-                classHeaderTitle = imported.title;
-                officialRoster = imported.roster || [];
-                studentFilledData = imported.seats || {};
-
-                dbTitles[currentClassID] = classHeaderTitle;
-                dbRosters[currentClassID] = officialRoster;
-                dbFilledData[currentClassID] = studentFilledData;
-                localStorage.setItem("seat_db_titles", JSON.stringify(dbTitles));
-                localStorage.setItem("seat_db_rosters", JSON.stringify(dbRosters));
-                localStorage.setItem("seat_db_filled", JSON.stringify(dbFilledData));
-
-                const baseUrl = window.location.protocol + '//' + window.location.host + window.location.pathname;
-                alert("【同步匯入成功】\n所有班期名稱、名冊與劃位數據已成功同步！");
-                window.location.href = `${baseUrl}?class=${currentClassID}`;
-            } catch (err) {
-                alert("讀取檔案失敗，請確保上傳正確的 .json 備份檔。");
-            }
-        };
-        reader.readAsText(file);
     }
 
     function handleSeatClick(seatCode) {
@@ -738,7 +681,13 @@
         window.print();
     }
 
-    window.onload = function() { renderSeatsGrid(); };
+    window.onload = function() {
+        renderSeatsGrid();
+        // 如果當前有開班狀態，切換到後台時直接顯示清晰的 QR Code
+        if (currentClassID && currentPage === "admin") {
+            generateClassQRCode(currentClassID);
+        }
+    };
 </script>
 </body>
 </html>
