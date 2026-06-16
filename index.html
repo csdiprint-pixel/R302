@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>302教室線上選位與核實系統</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        :root {
+            --border-color: #707070;
+            --booked-bg: #e8f4f8;
+            --booked-text: #2c3e50;
+            --volunteer-bg: #fff2cc;
+            --volunteer-text: #d68910;
+            --status-match: #d4edda;
+            --status-mismatch: #f8d7da;
+        }
+
+        body {
+            font-family: "Microsoft JhengHei", Arial, sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 10px;
+            color: #000;
+        }
+
+        /* 導覽列（切換前后台） */
+        .nav-bar {
+            display: flex;
+            justify-content: space-between;
+            background: #2c3e50;
+            padding: 10px;
+            margin: -10px -10px 15px -10px;
+        }
+        .nav-bar span { color: white; font-weight: bold; font-size: 15px; line-height: 30px; padding-left: 5px; }
+        .nav-btn {
+            background: #34495e;
+            color: white;
+            border: 1px solid #455a64;
+            padding: 5px 15px;
+            cursor: pointer;
+            font-size: 13px;
+            border-radius: 4px;
+        }
+
+        .page { display: none; }
+        .page.active { display: block; }
+
+        .main-container {
+            max-width: 100%;
+            margin: 0 auto;
+            background: #fff;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        /* 班期資訊顯示區 */
+        .class-info-header {
+            text-align: center;
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            letter-spacing: 0.5px;
+            word-break: break-all;
+            color: #111;
+        }
+
+        /* 講台與白板 */
+        .stage-area {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            margin: 10px 0 25px 0;
+        }
+        .stage-box {
+            border: 1px solid var(--border-color);
+            padding: 6px 25px;
+            font-size: 13px;
+            font-weight: bold;
+            background: #f2f2f2;
+        }
+
+        /* 教室網格 */
+        .classroom-grid {
+            display: flex;
+            justify-content: center;
+            align-items: stretch;
+            overflow-x: auto;
+            padding-bottom: 15px;
+        }
+
+        /* 兩側垂直文字欄 */
+        .side-notice {
+            width: 30px;
+            font-size: 12px;
+            font-weight: bold;
+            color: #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            text-align: center;
+            padding: 15px 4px;
+            border: 1px solid var(--border-color);
+            background: #fff;
+            white-space: nowrap;
+        }
+        .side-notice .door { color: #ff0000; font-weight: bold; }
+        .side-notice .text-vertical {
+            writing-mode: vertical-rl;
+            text-combine-upright: all;
+            letter-spacing: 3px;
+            margin: 20px 0;
+            line-height: 1.2;
+        }
+
+        /* 座位表格 */
+        .seat-table {
+            border-collapse: separate;
+            border-spacing: 5px 6px;
+            margin: 0 8px;
+            min-width: 660px;
+        }
+        .seat-table td {
+            border: 1px solid var(--border-color);
+            text-align: center;
+            vertical-align: middle;
+            width: 55px;
+            height: 40px;
+            font-size: 13px;
+            font-weight: bold;
+            background-color: #fff;
+            cursor: pointer;
+            border-radius: 2px;
+        }
+        .seat-table td.booked {
+            background-color: var(--booked-bg);
+            color: var(--booked-text);
+        }
+        .seat-table td.verified-match {
+            background-color: var(--status-match) !important;
+            color: #155724 !important;
+            border-color: #c3e6cb;
+        }
+        .seat-table td.verified-error {
+            background-color: var(--status-mismatch) !important;
+            color: #721c24 !important;
+            border-color: #f5c6cb;
+        }
+        .seat-table td.volunteer-seat {
+            background-color: var(--volunteer-bg);
+            color: var(--volunteer-text);
+            border: 1px solid var(--volunteer-text);
+            font-size: 12px;
+        }
+        .seat-table td.aisle-space {
+            border: none;
+            background: transparent;
+            width: 20px;
+            cursor: default;
+        }
+
+        .scroll-hint { text-align: center; font-size: 11px; color: #7f8c8d; margin-bottom: 5px; }
+        @media (min-width: 768px) { .scroll-hint { display: none; } }
+
+        /* 彈出視窗 */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.4);
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+        .modal-body {
+            background: #fff;
+            padding: 20px;
+            border-radius: 6px;
+            width: 85%;
+            max-width: 300px;
+            text-align: center;
+        }
+        .modal-body input {
+            width: 90%; padding: 8px; margin: 15px 0; font-size: 16px; border: 1px solid #ccc; border-radius: 4px; text-align: center;
+        }
+        .modal-btns { display: flex; justify-content: space-around; }
+        .btn { padding: 6px 16px; border: 1px solid #707070; background: #f2f2f2; cursor: pointer; font-size: 14px; }
+        .btn-ok { background: #d4edda; color: #155724; border-color: #c3e6cb; }
+
+        /* ================= 後台樣式 ================= */
+        .admin-box {
+            background: white; padding: 15px; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .admin-box h3 { margin-top: 0; color: #2c3e50; border-left: 4px solid #2980b9; padding-left: 8px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-weight: bold; font-size: 14px; margin-bottom: 5px; }
+        .form-group textarea { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; resize: vertical; }
+        .form-group input[type="password"] { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+        
+        .btn-admin-act { width: 100%; padding: 12px; font-size: 14px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; color: white; margin-bottom: 10px; }
+        .btn-blue { background-color: #2980b9; }
+        .btn-orange { background-color: #e67e22; }
+        .btn-gray { background-color: #7f8c8d; }
+        .btn-green { background-color: #27ae60; }
+        
+        .report-box { background: #fdfefe; border: 1px solid #ddd; padding: 12px; border-radius: 4px; font-size: 13px; margin-top: 15px; line-height: 1.5; display: none; }
+        
+        /* QR Code 顯示區域 */
+        .qrcode-container {
+            background: #fff;
+            border: 1px solid #ccc;
+            padding: 15px;
+            margin: 15px 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+        }
+        .qrcode-url-text {
+            font-size: 12px;
+            color: #555;
+            word-break: break-all;
+            margin-top: 10px;
+            background: #eee;
+            padding: 5px;
+            width: 100%;
+            box-sizing: border-box;
+            text-align: center;
+        }
+
+        .pwd-section {
+            margin-top: 25px;
+            padding-top: 15px;
+            border-top: 1px dashed #ccc;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="nav-bar">
+        <span>公務人力發展中心選位系統</span>
+        <button class="nav-btn" id="navToggleBtn" onclick="togglePage()">切換至管理後台</button>
+    </div>
+
+    <div id="studentPage" class="page active">
+        <div class="main-container">
+            <div class="class-info-header" id="displayClassHeader">
+                302教室線上選位表 (請靜待管理員啟動班期)
+            </div>
+            <div class="scroll-hint">⇿ 手機用戶可左右滑動查看完整 302 教室 ⇿</div>
+
+            <div class="stage-area">
+                <div class="stage-box">白板</div>
+                <div class="stage-box">講台</div>
+                <div class="stage-box">白板</div>
+            </div>
+
+            <div class="classroom-grid">
+                <div class="side-notice">
+                    <div class="door">前門</div>
+                    <div class="text-vertical">如換座位請登記，請記得自己改座位表，以便確認出缺勤。</div>
+                    <div class="door">後門</div>
+                </div>
+
+                <table class="seat-table" id="classroomSeats">
+                    </table>
+
+                <div class="side-notice">
+                    <div class="door">前門</div>
+                    <div class="text-vertical">如換座位請登記，請記得自己改座位表，以便確認出缺勤。</div>
+                    <div class="door">後門</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="adminPage" class="page">
+        <div class="admin-box">
+            <h3>⚙️ 302教室 - 系統管理後台</h3>
+            
+            <div class="form-group">
+                <label>【步驟一】請複製 Word 名冊內的「所有文字」並貼在下方：</label>
+                <textarea id="rawRosterInput" rows="5" placeholder="請在 Word 檔案中按 Ctrl+A 全選、Ctrl+C 複製，然後直接在此貼上..."></textarea>
+            </div>
+
+            <button class="btn-admin-act btn-blue" onclick="processRosterText()">【步驟二】一鍵解析並啟動班期</button>
+            
+            <div id="qrcodeWrapper" class="qrcode-container" style="display: none;">
+                <strong style="color: #2c3e50; margin-bottom: 10px; font-size:14px;">📱 當前班期專屬 QR Code (供現場學員手機掃描)</strong>
+                <div id="qrcode"></div>
+                <div class="qrcode-url-text" id="qrcodeUrl"></div>
+            </div>
+
+            <button class="btn-admin-act btn-orange" onclick="verifyFilledSeats()">【步驟三】一鍵與名冊核實比對</button>
+            <button class="btn-admin-act btn-gray" onclick="clearVerificationStatus()">清除核實燈號</button>
+
+            <div class="report-box" id="adminReport"></div>
+
+            <div class="pwd-section">
+                <h4 style="margin: 0 0 10px 0; color: #7f8c8d;">🔒 後台安全性設定</h4>
+                <div class="form-group" style="margin-bottom: 8px;">
+                    <label style="font-size: 12px; color:#555;">設定新的管理員密碼：</label>
+                    <input type="password" id="newPasswordInput" placeholder="請輸入新密碼">
+                </div>
+                <button class="btn-admin-act btn-green" style="padding: 8px; font-size: 13px;" onclick="changeAdminPassword()">變更管理員密碼</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="seatModal">
+        <div class="modal-body">
+            <h3 id="targetSeatLabel" style="margin: 0;">座位 1-1</h3>
+            <p style="font-size: 12px; color: #666; margin: 8px 0 0 0;">請填寫您的真實姓名：</p>
+            <input type="text" id="studentName" placeholder="請輸入姓名" autocomplete="off">
+            <div class="modal-btns">
+                <button class="btn" onclick="closeSelectModal()">取消</button>
+                <button class="btn btn-ok" onclick="saveStudentSeat()">確認提交</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // 全域變數
+    let currentPage = "student"; 
+    let activeSeatId = "";      
+    let isVerifyVisualOn = false; 
+    let qrcodeGenerator = null; // QR Code 物件實例
+
+    // 本地系統設定讀取
+    let adminPassword = localStorage.getItem("seat_admin_pwd") || "302"; 
+    
+    // 核心資料庫設計：改為以 ClassID 區分的物件
+    let currentClassID = getUrlParam("class") || ""; // 從網址抓 ?class=XXXXXX
+    let dbTitles = JSON.parse(localStorage.getItem("seat_db_titles")) || {};
+    let dbRosters = JSON.parse(localStorage.getItem("seat_db_rosters")) || {};
+    let dbFilledData = JSON.parse(localStorage.getItem("seat_db_filled")) || {};
+
+    // 取得當前班期的具體資料
+    let classHeaderTitle = dbTitles[currentClassID] || "302教室線上選位表 (請由管理員自後台載入班期名冊)";
+    if (currentClassID === "") classHeaderTitle = "302教室線上選位表 (請由管理員自後台載入班期名冊)";
+    let officialRoster = dbRosters[currentClassID] || [];
+    let studentFilledData = dbFilledData[currentClassID] || {};
+
+    // 工具功能：取得網址參數
+    function getUrlParam(name) {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get(name);
+    }
+
+    // 1. 前後台頁面切換
+    function togglePage() {
+        const btn = document.getElementById("navToggleBtn");
+        if (currentPage === "student") {
+            const pwd = prompt("請輸入管理員密碼以進入後台：");
+            if (pwd === adminPassword) { 
+                document.getElementById("studentPage").classList.remove("active");
+                document.getElementById("adminPage").classList.add("active");
+                btn.innerText = "返回學員選位前台";
+                currentPage = "admin";
+                // 進入後台時，如果目前已有開班，顯示 QR Code
+                if (currentClassID) {
+                    generateClassQRCode(currentClassID);
+                }
+            } else if (pwd !== null) {
+                alert("密碼錯誤！進入失敗。");
+            }
+        } else {
+            document.getElementById("adminPage").classList.remove("active");
+            document.getElementById("studentPage").classList.add("active");
+            btn.innerText = "切換至管理後台";
+            currentPage = "student";
+        }
+    }
+
+    // 2. 修改後台密碼
+    function changeAdminPassword() {
+        const newPwd = document.getElementById("newPasswordInput").value.trim();
+        if (!newPwd) { alert("密碼不可為空！"); return; }
+        if (confirm(`確定要將密碼修改為「${newPwd}」嗎？`)) {
+            adminPassword = newPwd;
+            localStorage.setItem("seat_admin_pwd", newPwd);
+            document.getElementById("newPasswordInput").value = "";
+            alert("密碼修改成功！");
+        }
+    }
+
+    // 3. 渲染座位
+    function renderSeatsGrid() {
+        document.getElementById("displayClassHeader").innerText = classHeaderTitle;
+        const table = document.getElementById("classroomSeats");
+        let html = "";
+
+        for (let row = 1; row <= 12; row++) {
+            html += "<tr>";
+            for (let col = 1; col <= 10; col++) {
+                if (row === 12 && (col === 9 || col === 10)) {
+                    html += `<td class="volunteer-seat">志工</td>`;
+                    continue;
+                }
+                const seatCode = `${row}-${col}`;
+                const name = studentFilledData[seatCode];
+
+                if (name) {
+                    let tdClass = "booked";
+                    if (isVerifyVisualOn) {
+                        tdClass = officialRoster.includes(name) ? "verified-match" : "verified-error";
+                    }
+                    html += `<td class="${tdClass}" onclick="handleSeatClick('${seatCode}')">${name}</td>`;
+                } else {
+                    html += `<td onclick="handleSeatClick('${seatCode}')">${seatCode}</td>`;
+                }
+                if (col === 3 || col === 6) { html += `<td class="aisle-space"></td>`; }
+            }
+            html += "</tr>";
+        }
+        table.innerHTML = html;
+    }
+
+    // 4. 後台：一鍵解析名冊、儲存、並動態生成專屬該班級的 QR Code
+    function processRosterText() {
+        const text = document.getElementById("rawRosterInput").value;
+        if (!text.trim()) { alert("請先貼入名冊文字內容！"); return; }
+
+        try {
+            let classCode = "000000";
+            let className = "新研習班期";
+            const codeMatch = text.match(/(\d{6})[「"']?([^「」"'\s]+)[」"']?/);
+            if (codeMatch) {
+                classCode = codeMatch[1];
+                className = `「${codeMatch[2]}」`;
+            }
+
+            let formattedDate = "";
+            const dateMatch = text.match(/受訓日期：(\d+)年(\d+)月(\d+)日/);
+            if (dateMatch) {
+                const westernYear = parseInt(dateMatch[1]) + 1911;
+                formattedDate = `${westernYear}.${dateMatch[2].padStart(2,'0')}.${dateMatch[3].padStart(2,'0')}`;
+            } else {
+                const today = new Date();
+                formattedDate = `${today.getFullYear()}.${String(today.getMonth()+1).padStart(2,'0')}.${String(today.getDate()).padStart(2,'0')}`;
+            }
+
+            // 更新當前操作的班級代碼
+            currentClassID = classCode;
+            classHeaderTitle = `${classCode}${className}-${formattedDate}`;
+
+            // 解析名冊名單
+            const cleanText = text.replace(/高雄市政府公務人力發展中心/g, " ")
+                                  .replace(/主任|秘書|組長|副研究員|輔導員|組員|助理員|技士|辦事員|駐衛隊員|技工|駕駛|工友/g, " ");
+            const tokens = cleanText.split(/[\s\t\n\r]+/);
+            const excludeWords = ["座號", "機關學校", "職稱", "姓名", "受訓日期", "至", "共", "小時", "學員名冊", "班期"];
+            const nameSet = new Set();
+            const nameRegex = /^[\u4e00-\u9fa5]{2,4}$/;
+
+            tokens.forEach(token => {
+                const clean = token.trim();
+                if (nameRegex.test(clean) && !excludeWords.includes(clean) && !clean.includes("年") && !clean.includes("月") && !clean.includes("日")) {
+                    nameSet.add(clean);
+                }
+            });
+            officialRoster = Array.from(nameSet);
+
+            // 如果該班級以前沒有選位紀錄，進行初始化
+            if (!dbFilledData[currentClassID]) {
+                studentFilledData = {};
+            } else {
+                studentFilledData = dbFilledData[currentClassID]; // 讀取舊紀錄
+            }
+
+            // 同步寫入多班級資料庫 (LocalStorage)
+            dbTitles
