@@ -48,7 +48,7 @@
         
         .seat-table td.booked { background-color: var(--booked-bg); color: var(--booked-text); border-color: #8aa4b7; }
         
-        /* ★ 新增：專屬自己的座位強調樣式 */
+        /* ★ 專屬自己的座位強調樣式 */
         .seat-table td.my-seat { 
             background-color: var(--my-seat-bg) !important; 
             color: var(--my-seat-text) !important; 
@@ -242,17 +242,15 @@
     </div>
 
 <script>
-    // 確保使用相同的 Firebase，但這份程式將獨立劃分出 room302 節點隔離資料
     const FIREBASE_URL = "https://seat-302-115552-default-rtdb.firebaseio.com";
 
     let currentPage = "student"; 
     let activeSeatId = "";      
     let isVerifyVisualOn = false; 
 
-    let adminPassword = "302"; // 預設密碼為 302
+    let adminPassword = "302"; 
     let currentClassID = getUrlParam("class") || ""; 
 
-    // 使用 302 專屬的 localStorage Key
     let dbTitles = JSON.parse(localStorage.getItem("seat_db_titles_302")) || {};
     let dbRosters = JSON.parse(localStorage.getItem("seat_db_rosters_302")) || {};
     
@@ -260,7 +258,6 @@
     let officialRoster = dbRosters[currentClassID] || [];
     let studentFilledData = {}; 
 
-    // ★ 輔助函數：姓名遮罩轉換
     function maskName(name) {
         if (!name) return "";
         if (name.length === 2) return name[0] + "Ｏ";
@@ -304,40 +301,42 @@
         });
     }
 
+    // ★ 修改：即時監聽整個班期資料夾，當班期被刪除時，同步踢出並清除本機記憶
     function startRealtimeSync() {
         if (!currentClassID) return;
         
-        // 修正點：將資料路徑改為 room302 以隔離 403 教室資料
-        const syncUrl = `${FIREBASE_URL}/room302/${currentClassID}/seats.json`;
+        const syncUrl = `${FIREBASE_URL}/room302/${currentClassID}.json`;
         const eventSource = new EventSource(syncUrl);
 
         eventSource.onmessage = function(event) {
             const data = JSON.parse(event.data);
             
             if (data && data.path === "/") {
-                studentFilledData = data.data || {};
-            } else if (data && data.path) {
-                const cleanKey = data.path.replace("/", "");
-                if (cleanKey) {
-                    if (data.data === null) delete studentFilledData[cleanKey];
-                    else studentFilledData[cleanKey] = data.data;
+                if (data.data === null) {
+                    // ★ 雲端資料已被清除 (同步踢出機制)
+                    alert("⚠️ 此班期資料已由管理員徹底清除！自動返回首頁。");
+                    delete dbTitles[currentClassID];
+                    delete dbRosters[currentClassID];
+                    localStorage.setItem("seat_db_titles_302", JSON.stringify(dbTitles));
+                    localStorage.setItem("seat_db_rosters_302", JSON.stringify(dbRosters));
+                    localStorage.removeItem(`mySeat_302_${currentClassID}`);
+                    window.location.href = window.location.pathname; // 導回沒有代碼的乾淨網址
+                    return;
                 }
-            } else if (event.data && !data.path) {
-                studentFilledData = data || {};
+                studentFilledData = (data.data && data.data.seats) ? data.data.seats : {};
+            } else if (data && data.path) {
+                if (data.path.startsWith("/seats/")) {
+                    const cleanKey = data.path.replace("/seats/", "");
+                    if (cleanKey) {
+                        if (data.data === null) delete studentFilledData[cleanKey];
+                        else studentFilledData[cleanKey] = data.data;
+                    }
+                } else if (data.path === "/seats") {
+                    studentFilledData = data.data || {};
+                }
             }
             renderSeatsGrid();
         };
-        fetchSeatsDataLegacy();
-    }
-
-    async function fetchSeatsDataLegacy() {
-        if (!currentClassID) return;
-        try {
-            const res = await fetch(`${FIREBASE_URL}/room302/${currentClassID}/seats.json`);
-            const data = await res.json();
-            studentFilledData = data || {};
-            renderSeatsGrid();
-        } catch(e) {}
     }
 
     async function updateCloudSeat(seatId, name) {
@@ -455,7 +454,6 @@
         }
     }
 
-    // ★ 302專屬座位渲染邏輯 (12排 x 10欄)
     function renderSeatsGrid() {
         document.getElementById("displayClassHeader").innerText = classHeaderTitle;
         const table = document.getElementById("classroomSeats");
@@ -467,7 +465,6 @@
         for (let row = 1; row <= 12; row++) {
             html += "<tr>";
             for (let col = 1; col <= 10; col++) {
-                // 志工保留位
                 if (row === 12 && (col === 9 || col === 10)) {
                     html += `<td class="volunteer-seat">志工<br>保留</td>`;
                     continue;
@@ -475,11 +472,10 @@
 
                 const seatCode = `${row}-${col}`;
                 const name = studentFilledData[seatCode];
-                // ★ 判斷是否為自己的座位
                 const isMySeat = (seatCode === myBookedSeat);
                 
                 if (name) {
-                    // ★ 如果是自己的座位，加上 my-seat 樣式強調
+                    // ★ 高亮顯示我的座位
                     let tdClass = isMySeat ? "booked my-seat" : "booked";
                     
                     if (isVerifyVisualOn) {
@@ -487,12 +483,11 @@
                     }
                     
                     let displayName = name;
-                    // 前台且非本人的座位進行遮罩
+                    // 非後台且非自己的座位，套用遮罩
                     if (!isBackend && !isMySeat) {
                         displayName = maskName(name);
                     }
 
-                    // 保留座位編號並換行顯示
                     html += `<td class="${tdClass}" onclick="handleSeatClick('${seatCode}')">${seatCode}<br>${displayName}</td>`;
                 } else {
                     html += `<td onclick="handleSeatClick('${seatCode}')">${seatCode}</td>`;
@@ -567,7 +562,7 @@
         });
     }
 
-    // ★ 修改：清除資料後，讓有班期代碼的網址失效，自動跳轉乾淨的首頁
+    // ★ 修改：徹底清除資料庫，並導航回無代碼的根目錄，讓舊網址直接失效
     async function clearCurrentClassData() {
         if (!currentClassID) {
             alert("目前沒有載入任何班期！");
@@ -588,9 +583,8 @@
 
             alert("✅ 班期資料已徹底清除！將自動回到空白首頁。");
 
-            // 強制導航回沒有 ?class= 參數的乾淨網址
-            const cleanUrl = window.location.protocol + '//' + window.location.host + window.location.pathname;
-            window.location.href = cleanUrl;
+            // 強制導航回沒有 ?class= 的乾淨網址
+            window.location.href = window.location.pathname;
 
         } catch (error) {
             alert("清除失敗，請檢查網路連線！");
@@ -669,7 +663,7 @@
         studentFilledData[activeSeatId] = name;
         localStorage.setItem(`mySeat_302_${currentClassID}`, activeSeatId); 
         
-        renderSeatsGrid(); // 重新渲染後，自己的座位會立刻套用綠色樣式
+        renderSeatsGrid();
         closeSelectModal();
         await updateCloudSeat(activeSeatId, name);
     }
@@ -744,7 +738,7 @@
         window.print();
     }
 
-    // 啟動程序
+    // ★ 啟動程序：加入網址失效安全驗證
     window.onload = async function() {
         try {
             const noCacheUrl = `${FIREBASE_URL}/settings/pwd_302.json?t=${new Date().getTime()}`;
@@ -755,22 +749,30 @@
 
         if (currentClassID) {
             try {
-                const tRes = await fetch(`${FIREBASE_URL}/room302/${currentClassID}/title.json?t=${new Date().getTime()}`, { cache: "no-store" });
-                const tData = await tRes.json();
-                if(tData) {
-                    classHeaderTitle = tData;
+                // 網址驗證：如果一進來發現雲端根本沒有這個班期資料（已被清除），直接洗掉本機記憶並返回首頁
+                const res = await fetch(`${FIREBASE_URL}/room302/${currentClassID}.json?t=${new Date().getTime()}`, { cache: "no-store" });
+                const classData = await res.json();
+                
+                if (classData === null) {
+                    alert("⛔ 此班期代碼無效或資料已被清除！自動導回首頁。");
+                    delete dbTitles[currentClassID];
+                    delete dbRosters[currentClassID];
+                    localStorage.setItem("seat_db_titles_302", JSON.stringify(dbTitles));
+                    localStorage.setItem("seat_db_rosters_302", JSON.stringify(dbRosters));
+                    localStorage.removeItem(`mySeat_302_${currentClassID}`);
+                    window.location.href = window.location.pathname; // 導回乾淨首頁
+                    return; // 終止後續執行
+                }
+
+                if (classData.title) {
+                    classHeaderTitle = classData.title;
                     dbTitles[currentClassID] = classHeaderTitle;
                 }
-            } catch(e){}
-
-            try {
-                const rRes = await fetch(`${FIREBASE_URL}/room302/${currentClassID}/roster.json?t=${new Date().getTime()}`, { cache: "no-store" });
-                const rData = await rRes.json();
-                if(rData) {
-                    officialRoster = rData;
+                if (classData.roster) {
+                    officialRoster = classData.roster;
                     dbRosters[currentClassID] = officialRoster;
                 }
-            } catch(e){}
+            } catch(e) {}
 
             renderSeatsGrid();
             startRealtimeSync();
