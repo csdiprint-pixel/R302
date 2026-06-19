@@ -509,7 +509,7 @@
         table.innerHTML = html;
     }
 
-    async function processRosterText() {
+async function processRosterText() {
         const text = document.getElementById("rawRosterInput").value;
         if (!text.trim()) { alert("請先貼入名冊文字內容！"); return; }
 
@@ -532,17 +532,24 @@
             currentClassID = classCode;
             classHeaderTitle = `${classCode}${className}-${formattedDate}`;
 
-            const cleanText = text.replace(/高雄市政府公務人力發展中心/g, " ").replace(/主任|秘書|組長|副研究員|輔導員|組員|助理員|技士|辦事員|駐衛隊員|技工|駕駛|工友/g, " ");
-            const tokens = cleanText.split(/[\s\t\n\r ]+/);
-            const excludeWords = ["座號", "機關學校", "職稱", "姓名", "受訓日期", "至", "共", "小時", "學員名冊", "班期", "從檢測到防禦的完整漏洞管理流程座位表"];
+            // 【純淨版解析邏輯】直接用空白、換行或逗號切開文字
+            const tokens = text.split(/[\s\t\n\r,，、]+/);
             const nameSet = new Set();
-            const nameRegex = /^[\u4e00-\u9fa5]{2,4}$/;
-
+            const nameRegex = /^[\u4e00-\u9fa5]{2,4}$/; // 嚴格限制：2~4個中文字
+            
             tokens.forEach(token => {
                 const clean = token.trim();
-                if (nameRegex.test(clean) && !excludeWords.includes(clean) && !clean.includes("年") && !clean.includes("月") && !clean.includes("日")) nameSet.add(clean);
+                // 只要符合中文姓名格式，且不包含日期/班級/標題字眼，就當作姓名收入
+                if (nameRegex.test(clean) && !clean.includes("年") && !clean.includes("月") && !clean.includes("日") && !clean.includes("班") && clean !== "姓名" && clean !== "座號" && clean !== "受訓日期") {
+                    nameSet.add(clean);
+                }
             });
             officialRoster = Array.from(nameSet);
+
+            if (officialRoster.length === 0) {
+                alert("警告：未抓取到任何有效姓名！請確認貼上的文字包含學員姓名。");
+                return;
+            }
 
             dbTitles[currentClassID] = classHeaderTitle;
             dbRosters[currentClassID] = officialRoster;
@@ -553,10 +560,10 @@
             await fetch(`${FIREBASE_URL}/room302/${currentClassID}/roster.json`, { method: 'PUT', body: JSON.stringify(officialRoster) });
 
             const baseUrl = window.location.protocol + '//' + window.location.host + window.location.pathname;
-            alert(`【開班成功】\n302教室班期 ${currentClassID} 已完成建立！`);
-            window.location.replace(`${baseUrl}?class=${currentClassID}`);
+            alert(`【開班成功】\n302教室班期 ${currentClassID} 已完成建立！\n共匯入 ${officialRoster.length} 名學員。`);
+            window.location.href = `${baseUrl}?class=${currentClassID}`;
 
-        } catch (err) { alert("解析錯誤，請確認文字內包含完整的名冊結構。"); }
+        } catch (err) { alert("解析錯誤，請確認文字內容。"); }
     }
 
     function generateClassQRCode(classId) {
