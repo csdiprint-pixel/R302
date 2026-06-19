@@ -7,23 +7,22 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         :root {
-            --border-color: #555555;
-            --booked-bg: #e8f4f8; /* 別人的座位：淡藍色 */
+            --border-color: #707070;
+            --booked-bg: #e8f4f8;
             --booked-text: #2c3e50;
-            --my-seat-bg: #d4edda; /* 我的座位：淡綠色 */
+            --my-seat-bg: #d4edda;
             --my-seat-text: #155724;
-            --my-seat-border: #28a745; /* 我的座位：粗綠框 */
+            --my-seat-border: #28a745;
             --volunteer-bg: #fff2cc;
             --volunteer-text: #d68910;
             --status-match: #d4edda;
             --status-mismatch: #f8d7da;
         }
 
-        /* 提升基礎字體大小，適合55歲以下閱讀 */
-        body { font-family: "Microsoft JhengHei", Arial, sans-serif; background-color: #f8f9fa; margin: 0; padding: 12px; color: #111; font-size: 16px; }
+        body { font-family: "Microsoft JhengHei", Arial, sans-serif; background-color: #f8f9fa; margin: 0; padding: 10px; color: #000; font-size: 16px; }
 
-        /* 導覽列加大 */
-        .nav-bar { display: flex; justify-content: space-between; background: #2c3e50; padding: 15px; margin: -12px -12px 20px -12px; align-items: center; }
+        /* 導覽列 */
+        .nav-bar { display: flex; justify-content: space-between; background: #2c3e50; padding: 15px; margin: -10px -10px 15px -10px; align-items: center; }
         .nav-bar span { color: white; font-weight: bold; font-size: 18px; padding-left: 5px; }
         .nav-btn { background: #34495e; color: white; border: 1px solid #455a64; padding: 8px 16px; cursor: pointer; font-size: 15px; border-radius: 6px; font-weight: bold;}
 
@@ -32,23 +31,20 @@
 
         .main-container { max-width: 100%; margin: 0 auto; background: #fff; padding: 20px 15px; box-sizing: border-box; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
 
-        .class-info-header { text-align: center; font-size: 18px; font-weight: bold; margin-bottom: 20px; color: #111; word-break: break-all; line-height: 1.4; }
+        .class-info-header { text-align: center; font-size: 18px; font-weight: bold; margin-bottom: 20px; color: #111; word-break: break-all; line-height: 1.4;}
 
         .stage-area { display: flex; justify-content: center; align-items: center; gap: 20px; margin: 15px 0 30px 0; }
-        .stage-box { border: 2px solid var(--border-color); padding: 10px 30px; font-size: 16px; font-weight: bold; background: #f2f2f2; border-radius: 4px;}
+        .stage-box { border: 2px solid var(--border-color); padding: 10px 30px; font-size: 16px; font-weight: bold; background: #f2f2f2; border-radius: 4px; }
 
         .classroom-grid { display: flex; justify-content: center; align-items: stretch; overflow-x: auto; padding-bottom: 20px; margin-top: 10px; }
 
         /* 302 教室專屬配置：右側門位 */
         .door-notice-right { width: 50px; font-size: 15px; font-weight: bold; color: #ff0000; display: flex; flex-direction: column; text-align: center; justify-content: space-between; padding-top: 2px; box-sizing: border-box; margin-left: 10px; } 
 
-        /* 加大座位表與格子 */
         .seat-table { border-collapse: separate; border-spacing: 6px 8px; min-width: 700px; margin: 0; }
-        .seat-table td { border: 1px solid var(--border-color); text-align: center; vertical-align: middle; width: 75px; height: 55px; font-size: 15px; font-weight: bold; background-color: #fff; cursor: pointer; border-radius: 4px; line-height: 1.3; box-shadow: 0 1px 2px rgba(0,0,0,0.05);}
-        
+        .seat-table td { border: 1px solid var(--border-color); text-align: center; vertical-align: middle; width: 75px; height: 55px; font-size: 15px; font-weight: bold; background-color: #fff; cursor: pointer; border-radius: 4px; line-height: 1.3; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
         .seat-table td.booked { background-color: var(--booked-bg); color: var(--booked-text); border-color: #8aa4b7; }
         
-        /* ★ 專屬自己的座位強調樣式 */
         .seat-table td.my-seat { 
             background-color: var(--my-seat-bg) !important; 
             color: var(--my-seat-text) !important; 
@@ -61,29 +57,29 @@
         .seat-table td.verified-error { background-color: var(--status-mismatch) !important; color: #721c24 !important; border-color: #f5c6cb; }
         .seat-table td.volunteer-seat { background-color: var(--volunteer-bg); color: var(--volunteer-text); border: 1px solid var(--volunteer-text); font-size: 14px; cursor: default; }
 
-        .scroll-hint { text-align: center; font-size: 13px; color: #e67e22; margin-bottom: 15px; font-weight: bold;}
+        .scroll-hint { text-align: center; font-size: 13px; color: #e67e22; margin-bottom: 15px; font-weight: bold; }
         @media (min-width: 768px) { .scroll-hint { display: none; } }
 
-        /* 彈出視窗加大 */
+        /* 彈出視窗 */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 9999; }
         .modal-body { background: #fff; padding: 25px; border-radius: 10px; width: 90%; max-width: 360px; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
-        .modal-body h3 { font-size: 22px; margin-bottom: 15px; color: #333;}
+        .modal-body h3 { font-size: 22px; margin-bottom: 15px; color: #333; }
         .modal-body input { width: 100%; padding: 12px; margin: 15px 0; font-size: 18px; border: 2px solid #ccc; border-radius: 6px; text-align: center; box-sizing: border-box; }
         .modal-btns { display: flex; justify-content: space-around; margin-top: 20px; gap: 10px; }
-        .btn { padding: 12px 18px; border: 1px solid #707070; background: #f2f2f2; cursor: pointer; font-size: 16px; border-radius: 6px; flex: 1; font-weight: bold;}
+        .btn { padding: 12px 18px; border: 1px solid #707070; background: #f2f2f2; cursor: pointer; font-size: 16px; border-radius: 6px; flex: 1; font-weight: bold; }
         .btn-ok { background: #d4edda; color: #155724; border-color: #c3e6cb; }
         .btn-clear { background: #f8d7da; color: #721c24; border-color: #f5c6cb; }
 
         .modal-notice-box { background: #fff9f9; border: 1px solid #ffcccc; border-radius: 6px; padding: 12px; margin: 15px 0; text-align: left; font-size: 14px; color: #cc0000; line-height: 1.6; font-weight: bold; }
 
-        /* 後台樣式加大 */
+        /* 後台樣式 */
         .admin-box { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); max-width: 800px; margin: 0 auto; }
-        .admin-box h3 { margin-top: 0; color: #2c3e50; border-left: 5px solid #2980b9; padding-left: 10px; font-size: 20px;}
+        .admin-box h3 { margin-top: 0; color: #2c3e50; border-left: 5px solid #2980b9; padding-left: 10px; font-size: 20px; }
         .form-group { margin-bottom: 20px; }
         .form-group label { display: block; font-weight: bold; font-size: 16px; margin-bottom: 8px; color: #333; }
         .form-group textarea { width: 100%; padding: 12px; box-sizing: border-box; border: 2px solid #ccc; border-radius: 6px; font-size: 16px; resize: vertical; }
         
-        .btn-admin-act { width: 100%; padding: 15px; font-size: 16px; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; color: white; margin-bottom: 12px; letter-spacing: 1px;}
+        .btn-admin-act { width: 100%; padding: 15px; font-size: 16px; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; color: white; margin-bottom: 12px; letter-spacing: 1px; }
         .btn-blue { background-color: #2980b9; }
         .btn-orange { background-color: #e67e22; }
         .btn-gray { background-color: #7f8c8d; }
@@ -301,42 +297,53 @@
         });
     }
 
-    // ★ 修改：即時監聽整個班期資料夾，當班期被刪除時，同步踢出並清除本機記憶
+    // ★ 關鍵修復 1：即時踢出連線中的使用者
     function startRealtimeSync() {
         if (!currentClassID) return;
         
-        const syncUrl = `${FIREBASE_URL}/room302/${currentClassID}.json`;
+        const syncUrl = `${FIREBASE_URL}/room302/${currentClassID}/seats.json`;
         const eventSource = new EventSource(syncUrl);
 
         eventSource.onmessage = function(event) {
             const data = JSON.parse(event.data);
             
             if (data && data.path === "/") {
+                // 如果接收到的資料是 null，代表整個班期或座位表已被刪除
                 if (data.data === null) {
-                    // ★ 雲端資料已被清除 (同步踢出機制)
-                    alert("⚠️ 此班期資料已由管理員徹底清除！自動返回首頁。");
+                    alert("⚠️ 此班期已被管理員強制關閉並清除資料！自動返回首頁。");
                     delete dbTitles[currentClassID];
                     delete dbRosters[currentClassID];
                     localStorage.setItem("seat_db_titles_302", JSON.stringify(dbTitles));
                     localStorage.setItem("seat_db_rosters_302", JSON.stringify(dbRosters));
                     localStorage.removeItem(`mySeat_302_${currentClassID}`);
-                    window.location.href = window.location.pathname; // 導回沒有代碼的乾淨網址
+                    
+                    // 強制洗掉網址列上的 ?class= 參數
+                    window.location.replace(window.location.pathname);
                     return;
                 }
-                studentFilledData = (data.data && data.data.seats) ? data.data.seats : {};
+                studentFilledData = data.data || {};
             } else if (data && data.path) {
-                if (data.path.startsWith("/seats/")) {
-                    const cleanKey = data.path.replace("/seats/", "");
-                    if (cleanKey) {
-                        if (data.data === null) delete studentFilledData[cleanKey];
-                        else studentFilledData[cleanKey] = data.data;
-                    }
-                } else if (data.path === "/seats") {
-                    studentFilledData = data.data || {};
+                const cleanKey = data.path.replace("/", "");
+                if (cleanKey) {
+                    if (data.data === null) delete studentFilledData[cleanKey];
+                    else studentFilledData[cleanKey] = data.data;
                 }
+            } else if (event.data && !data.path) {
+                studentFilledData = data || {};
             }
             renderSeatsGrid();
         };
+        fetchSeatsDataLegacy();
+    }
+
+    async function fetchSeatsDataLegacy() {
+        if (!currentClassID) return;
+        try {
+            const res = await fetch(`${FIREBASE_URL}/room302/${currentClassID}/seats.json`);
+            const data = await res.json();
+            studentFilledData = data || {};
+            renderSeatsGrid();
+        } catch(e) {}
     }
 
     async function updateCloudSeat(seatId, name) {
@@ -475,7 +482,6 @@
                 const isMySeat = (seatCode === myBookedSeat);
                 
                 if (name) {
-                    // ★ 高亮顯示我的座位
                     let tdClass = isMySeat ? "booked my-seat" : "booked";
                     
                     if (isVerifyVisualOn) {
@@ -483,7 +489,6 @@
                     }
                     
                     let displayName = name;
-                    // 非後台且非自己的座位，套用遮罩
                     if (!isBackend && !isMySeat) {
                         displayName = maskName(name);
                     }
@@ -543,7 +548,7 @@
 
             const baseUrl = window.location.protocol + '//' + window.location.host + window.location.pathname;
             alert(`【開班成功】\n302教室班期 ${currentClassID} 已完成建立！`);
-            window.location.href = `${baseUrl}?class=${currentClassID}`;
+            window.location.replace(`${baseUrl}?class=${currentClassID}`);
 
         } catch (err) { alert("解析錯誤，請確認文字內包含完整的名冊結構。"); }
     }
@@ -562,7 +567,7 @@
         });
     }
 
-    // ★ 修改：徹底清除資料庫，並導航回無代碼的根目錄，讓舊網址直接失效
+    // ★ 關鍵修復 2：按鈕清除後強制用 replace 覆蓋網址歷史，絕對不留痕跡
     async function clearCurrentClassData() {
         if (!currentClassID) {
             alert("目前沒有載入任何班期！");
@@ -581,10 +586,10 @@
             localStorage.setItem("seat_db_rosters_302", JSON.stringify(dbRosters));
             localStorage.removeItem(`mySeat_302_${currentClassID}`); 
 
-            alert("✅ 班期資料已徹底清除！將自動回到空白首頁。");
+            alert("✅ 班期資料已徹底清除！將自動回到乾淨首頁。");
 
-            // 強制導航回沒有 ?class= 的乾淨網址
-            window.location.href = window.location.pathname;
+            // 使用 location.replace 強制覆寫當前網址歷史，拔除 ?class= 參數
+            window.location.replace(window.location.pathname);
 
         } catch (error) {
             alert("清除失敗，請檢查網路連線！");
@@ -738,7 +743,7 @@
         window.print();
     }
 
-    // ★ 啟動程序：加入網址失效安全驗證
+    // ★ 關鍵修復 3：啟動時檢查雲端，若班期已被刪除，強制洗白網址並導回首頁
     window.onload = async function() {
         try {
             const noCacheUrl = `${FIREBASE_URL}/settings/pwd_302.json?t=${new Date().getTime()}`;
@@ -749,30 +754,36 @@
 
         if (currentClassID) {
             try {
-                // 網址驗證：如果一進來發現雲端根本沒有這個班期資料（已被清除），直接洗掉本機記憶並返回首頁
-                const res = await fetch(`${FIREBASE_URL}/room302/${currentClassID}.json?t=${new Date().getTime()}`, { cache: "no-store" });
-                const classData = await res.json();
+                // 檢查雲端這筆班期資料是否還活著
+                const tRes = await fetch(`${FIREBASE_URL}/room302/${currentClassID}/title.json?t=${new Date().getTime()}`, { cache: "no-store" });
+                const tData = await tRes.json();
                 
-                if (classData === null) {
-                    alert("⛔ 此班期代碼無效或資料已被清除！自動導回首頁。");
+                // 如果回傳 null，代表這個代碼的班期已經被清除了
+                if(tData === null) {
+                    alert("⛔ 此班期代碼已失效或資料已被徹底清除！自動導回首頁。");
                     delete dbTitles[currentClassID];
                     delete dbRosters[currentClassID];
                     localStorage.setItem("seat_db_titles_302", JSON.stringify(dbTitles));
                     localStorage.setItem("seat_db_rosters_302", JSON.stringify(dbRosters));
                     localStorage.removeItem(`mySeat_302_${currentClassID}`);
-                    window.location.href = window.location.pathname; // 導回乾淨首頁
+                    
+                    // 強制用乾淨網址覆寫，抹除歷史紀錄
+                    window.location.replace(window.location.pathname);
                     return; // 終止後續執行
-                }
-
-                if (classData.title) {
-                    classHeaderTitle = classData.title;
+                } else {
+                    classHeaderTitle = tData;
                     dbTitles[currentClassID] = classHeaderTitle;
                 }
-                if (classData.roster) {
-                    officialRoster = classData.roster;
+            } catch(e){}
+
+            try {
+                const rRes = await fetch(`${FIREBASE_URL}/room302/${currentClassID}/roster.json?t=${new Date().getTime()}`, { cache: "no-store" });
+                const rData = await rRes.json();
+                if(rData) {
+                    officialRoster = rData;
                     dbRosters[currentClassID] = officialRoster;
                 }
-            } catch(e) {}
+            } catch(e){}
 
             renderSeatsGrid();
             startRealtimeSync();
