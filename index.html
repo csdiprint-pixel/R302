@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -5,60 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>302教室線上即時選位與核實系統</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.21/mammoth.browser.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script>
-       // 綁定檔案上傳事件
-document.addEventListener('DOMContentLoaded', () => {
-    const fileInput = document.getElementById('rosterFileInput');
-    if (fileInput) {
-        fileInput.addEventListener('change', (e) => processUploadedFile(e.target.files[0]));
-    }
-});
-
-async function processUploadedFile(file) {
-    if (!file) return;
-    const fileName = file.name.toLowerCase();
-    const outputBox = document.getElementById('rawRosterInput');
-    outputBox.value = "⏳ 正在解析檔案...";
-
-    // 處理 .docx
-    if (fileName.endsWith('.docx')) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            mammoth.extractRawText({arrayBuffer: e.target.result})
-                .then(res => { outputBox.value = res.value; alert("✅ Word 已讀取"); })
-                .catch(err => alert("Word 解析失敗"));
-        };
-        reader.readAsArrayBuffer(file);
-    } 
-    // 處理 .doc (防呆提醒)
-    else if (fileName.endsWith('.doc')) {
-        outputBox.value = "";
-        alert("⚠️ 偵測到舊版 Word (.doc)，請直接打開檔案【全選複製】，並【貼在下方文字方塊】即可。");
-        document.getElementById('rosterFileInput').value = '';
-    } 
-    // 處理 Excel
-    else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, {type: 'array'});
-            let names = new Set();
-            workbook.SheetNames.forEach(s => {
-                const rows = XLSX.utils.sheet_to_json(workbook.Sheets[s], {header: 1});
-                let idx = rows[0]?.findIndex(c => String(c).includes("姓名"));
-                if (idx !== -1) {
-                    rows.forEach(r => { if (r[idx]) names.add(r[idx]); });
-                }
-            });
-            outputBox.value = Array.from(names).join("\n");
-            alert(`✅ Excel 已成功抓取 ${names.size} 筆姓名`);
-        };
-        reader.readAsArrayBuffer(file);
-    }
-}
-    </script>
     <style>
         :root {
             --border-color: #707070;
@@ -158,38 +105,7 @@ async function processUploadedFile(file) {
         .admin-box h3 { margin-top: 0; color: #2c3e50; border-left: 6px solid #2980b9; padding-left: 12px; font-size: 24px; }
         .form-group { margin-bottom: 20px; }
         .form-group label { display: block; font-weight: bold; font-size: 18px; margin-bottom: 10px; color: #333; }
-        .form-group { 
-            margin-bottom: 20px; 
-            width: 100%; 
-            box-sizing: border-box; /* 這一行能防止區塊因為邊距而撐開 */
-         }
-        .form-group label { 
-            display: block; 
-            font-weight: bold; 
-            font-size: 18px; 
-            margin-bottom: 10px; 
-            color: #333; 
-         }  
-        /* ★ 新增：檔案拖曳與上傳區塊樣式 */
-        .file-upload-zone { 
-            width: 100%; 
-            padding: 20px; 
-            border: 2px dashed #2c3e50; 
-            border-radius: 8px; 
-            background-color: #fdfdfd; 
-            text-align: center; 
-            cursor: pointer; 
-            margin: 10px 0; 
-            color: #2c3e50; 
-            font-weight: bold; 
-            /* 關鍵點：加入下面這兩行確保不溢出 */
-            box-sizing: border-box; 
-            display: block;
-        .file-upload-zone:hover { background-color: #ececec; }
-        .file-upload-input { display: none; }
-        .file-upload-input { display: none; } /* 隱藏原生按鈕，用點擊區域觸發 */
-
-        .form-group textarea { width: 100%; padding: 15px; box-sizing: border-box; border: 2px solid #ccc; border-radius: 6px; font-size: 18px; resize: vertical; background-color: #f9f9f9; }
+        .form-group textarea { width: 100%; padding: 15px; box-sizing: border-box; border: 2px solid #ccc; border-radius: 6px; font-size: 18px; resize: vertical; }
         
         .btn-admin-act { width: 100%; padding: 18px; font-size: 20px; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; color: white; margin-bottom: 15px; letter-spacing: 1px; }
         .btn-blue { background-color: #2980b9; }
@@ -219,28 +135,71 @@ async function processUploadedFile(file) {
         /* 手機版完美修復：維持電腦版座位比例與字體，僅縮窄走道 */
         /* =================================================== */
         @media (max-width: 768px) {
+            /* 1. 隱藏手機版滑動提示，因為畫面已經完整呈現 */
             .scroll-hint { display: none !important; }
-            .seat-table td.aisle { width: 10px !important; min-width: 10px !important; max-width: 10px !important; padding: 0 !important; }
-            .seat-table { width: 900px !important; min-width: 900px !important; table-layout: fixed !important; }
-            .seat-table td:not(.aisle) { white-space: nowrap !important; }
-            .classroom-grid, .stage-area { width: 900px !important; margin: 0 auto !important; }
-            @media (max-width: 375px) { .classroom-grid, .stage-area { zoom: 0.37 !important; } }
-            @media (min-width: 376px) and (max-width: 414px) { .classroom-grid, .stage-area { zoom: 0.41 !important; } }
-            @media (min-width: 415px) and (max-width: 440px) { .classroom-grid, .stage-area { zoom: 0.44 !important; } }
-            @media (min-width: 441px) and (max-width: 768px) { .classroom-grid, .stage-area { zoom: 0.60 !important; } }
-            .main-container { padding: 10px 4px !important; overflow-x: hidden !important; }
+
+            /* 2. 縮窄走道：放寬座位可分配的空間 */
+            .seat-table td.aisle {
+                width: 10px !important;
+                min-width: 10px !important;
+                max-width: 10px !important;
+                padding: 0 !important;
+            }
+
+            /* 3. 強制座位表維持電腦版總寬度，確保座位與文字絕對不縮窄變形 */
+            .seat-table {
+                width: 900px !important;
+                min-width: 900px !important;
+                table-layout: fixed !important;
+            }
+
+            /* 4. 確保座位內的文字觀感與電腦版完全一致，絕不自動斷行 */
+            .seat-table td:not(.aisle) {
+                white-space: nowrap !important;
+            }
+
+            /* 5. 核心關鍵：將整個教室與講台區塊進行整體的等比例縮放 (Zoom) */
+            .classroom-grid, .stage-area {
+                width: 900px !important;
+                margin: 0 auto !important;
+            }
+
+            /* 依據不同手機螢幕寬度，給予精確的縮放比例，讓全部座位完美塞進畫面 */
+            @media (max-width: 375px) {
+                .classroom-grid, .stage-area { zoom: 0.37 !important; }
+            }
+            @media (min-width: 376px) and (max-width: 414px) {
+                .classroom-grid, .stage-area { zoom: 0.41 !important; }
+            }
+            @media (min-width: 415px) and (max-width: 440px) {
+                .classroom-grid, .stage-area { zoom: 0.44 !important; }
+            }
+            @media (min-width: 441px) and (max-width: 768px) {
+                .classroom-grid, .stage-area { zoom: 0.60 !important; }
+            }
+
+            /* 6. 優化手機版主容器，防止產生左右不必要的滾動條 */
+            .main-container {
+                padding: 10px 4px !important;
+                overflow-x: hidden !important;
+            }
+            
+            /* 7. 導覽列按鈕適度調整，方便手機點擊 */
             .nav-bar { padding: 12px 8px !important; }
             .nav-bar span { font-size: 18px !important; }
             .nav-btn { font-size: 15px !important; padding: 6px 12px !important; }
+
+            /* 8. 彈出對話視窗還原為正常比例，避免跟著被縮小 */
             .modal-overlay { zoom: 1 !important; }
-            .modal-body { width: 85% !important; max-width: 360px !important; padding: 20px !important; }
+            .modal-body {
+                width: 85% !important;
+                max-width: 360px !important;
+                padding: 20px !important;
+            }
             .modal-body h3 { font-size: 22px !important; }
             #targetSeatLabel { font-size: 24px !important; }
             .modal-body input { font-size: 18px !important; padding: 8px !important; }
             .btn { font-size: 18px !important; padding: 8px !important; }
-            
-            /* 手機版後台優化 */
-            .file-upload-zone { padding: 20px 10px !important; font-size: 16px !important; }
         }
     </style>
 </head>
@@ -289,13 +248,9 @@ async function processUploadedFile(file) {
             </div>
             
             <div class="form-group">
-                <label>請上傳名冊：</label>
-                <div id="dropZone" class="file-upload-zone" onclick="document.getElementById('rosterFileInput').click()">
-                   📂 點擊選擇 Word 或 Excel 檔案
-                </div>
-                <input type="file" id="rosterFileInput" class="file-upload-input" accept=".docx, .doc, .xlsx, .xls">
-                <textarea id="rawRosterInput" rows="6" style="width:100%; margin-top:10px;" placeholder="檔案解析後的姓名將顯示於此..."></textarea>
-           </div>
+                <label>【步驟一】請複製 Word 名冊內的「所有文字」並貼在下方：</label>
+                <textarea id="rawRosterInput" rows="6" placeholder="請在 Word 檔案中按 Ctrl+A 全選、Ctrl+C 複製，然後直接在此貼上..."></textarea>
+            </div>
 
             <button class="btn-admin-act btn-blue" onclick="processRosterText()">【步驟二】一鍵解析並啟動新班期</button>
             
@@ -382,7 +337,6 @@ async function processUploadedFile(file) {
     </div>
 
 <script>
-    
     // 毒素過濾器 
     function escapeHTML(str) {
         if (!str) return "";
@@ -407,125 +361,6 @@ async function processUploadedFile(file) {
     let classHeaderTitle = dbTitles[currentClassID] || "302教室線上選位表 (請由管理員自後台載入班期)";
     let officialRoster = dbRosters[currentClassID] || [];
     let studentFilledData = {}; 
-
-    // ==========================================
-    // 檔案拖曳、點擊上傳與解析邏輯 (Word / Excel / PDF / .doc 攔截)
-    // ==========================================
-    const dropZone = document.getElementById('dropZone');
-    const fileInput = document.getElementById('rosterFileInput');
-
-    // 拖曳事件綁定
-    dropZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dropZone.classList.add('dragover');
-    });
-    dropZone.addEventListener('dragleave', (e) => {
-        e.preventDefault();
-        dropZone.classList.remove('dragover');
-    });
-    dropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropZone.classList.remove('dragover');
-        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-            processUploadedFile(e.dataTransfer.files[0]);
-        }
-    });
-
-    // 點擊上傳事件綁定
-    fileInput.addEventListener('change', (e) => {
-        if (e.target.files && e.target.files.length > 0) {
-            processUploadedFile(e.target.files[0]);
-        }
-    });
-
-    // PDF 專屬文字提取函數
-    async function extractTextFromPDF(file) {
-        const arrayBuffer = await file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
-        let fullText = "";
-        for (let i = 1; i <= pdf.numPages; i++) {
-            const page = await pdf.getPage(i);
-            const textContent = await page.getTextContent();
-            // 將 PDF 單頁內的文字碎片組合起來
-            const pageText = textContent.items.map(item => item.str).join(" ");
-            fullText += pageText + "\n";
-        }
-        return fullText;
-    }
-
-    // 核心解析分配器
-    async function processUploadedFile(file) {
-        if (!file) return;
-
-        const fileName = file.name.toLowerCase();
-        const outputBox = document.getElementById('rawRosterInput');
-        outputBox.value = "⏳ 檔案讀取與解析中，請稍候...";
-
-        // 1. 處理新版 Word (.docx)
-        if (fileName.endsWith('.docx')) {
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                mammoth.extractRawText({arrayBuffer: event.target.result})
-                    .then(function(result) {
-                        outputBox.value = result.value;
-                        alert("✅ Word 檔案讀取成功！\n\n系統已將文字解析到下方框內。請確認內容後，點擊【步驟二】建立班期。");
-                    })
-                    .catch(function(err) {
-                        outputBox.value = "";
-                        alert("Word 解析失敗，請確認檔案是否損毀或被密碼保護：" + err.message);
-                    });
-            };
-            reader.readAsArrayBuffer(file);
-        } 
-        // 2. 🛑 專屬攔截：處理舊版 Word (.doc) 降級體驗
-        else if (fileName.endsWith('.doc')) {
-            outputBox.value = "";
-            alert("⚠️ 系統偵測到舊版 Word (.doc) 格式！\n\n受限於網頁瀏覽器安全限制，系統無法「自動」解析舊版二進制檔案。\n\n👉 替代方案：\n請直接打開該檔案，將內容【全選並複製】，直接【貼在下方的文字方塊】中，系統一樣會幫您智能抓取姓名！");
-            outputBox.placeholder = "請將 .doc 檔案內的文字複製後，直接貼在這裡...";
-            outputBox.focus(); 
-            fileInput.value = ''; 
-        } 
-        // 3. 處理 Excel (.xlsx, .xls) 或 CSV
-        else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls') || fileName.endsWith('.csv')) {
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                try {
-                    const data = new Uint8Array(event.target.result);
-                    const workbook = XLSX.read(data, {type: 'array'});
-                    let fullText = "";
-                    workbook.SheetNames.forEach(sheetName => {
-                        const sheet = workbook.Sheets[sheetName];
-                        fullText += XLSX.utils.sheet_to_csv(sheet) + "\n";
-                    });
-                    fullText = fullText.replace(/,/g, "  "); 
-                    outputBox.value = fullText;
-                    alert("✅ Excel 檔案讀取成功！\n\n系統已將文字解析到下方框內。請確認內容後，點擊【步驟二】建立班期。");
-                } catch(err) {
-                    outputBox.value = "";
-                    alert("Excel 解析失敗，請確認檔案格式是否正確：" + err.message);
-                }
-            };
-            reader.readAsArrayBuffer(file);
-        } 
-        // 4. 處理 PDF 文件 (.pdf)
-        else if (fileName.endsWith('.pdf')) {
-            try {
-                const text = await extractTextFromPDF(file);
-                outputBox.value = text;
-                alert("✅ PDF 檔案讀取成功！\n\n系統已將文字解析到下方框內。請確認內容後，點擊【步驟二】建立班期。");
-            } catch(err) {
-                outputBox.value = "";
-                alert("PDF 解析失敗，請確認檔案是否損毀或被密碼保護：" + err.message);
-            }
-        } 
-        // 5. 不支援的格式
-        else {
-            outputBox.value = "";
-            alert("⚠️ 不支援的檔案格式！\n請上傳 .docx, .xlsx, .xls, .csv 或 .pdf 的檔案。");
-            fileInput.value = '';
-        }
-    }
-    // ==========================================
 
     function maskName(name) {
         if (!name) return "";
@@ -773,7 +608,7 @@ async function processUploadedFile(file) {
 
     async function processRosterText() {
         const text = document.getElementById("rawRosterInput").value;
-        if (!text.trim()) { alert("請先貼入或上傳名冊內容！"); return; }
+        if (!text.trim()) { alert("請先貼入名冊文字內容！"); return; }
 
         try {
             // 1. 擷取班期代碼與名稱
@@ -809,7 +644,7 @@ async function processUploadedFile(file) {
                 const token = tokens[i].trim();
                 if (!token) continue;
 
-                // 只要遇到「純數字」(代表座號或序號)，就往前結算上一個人的資料
+                // 只要遇到「純數字」(代表座號)，就往前結算上一個人的資料
                 if (/^\d+$/.test(token)) {
                     if (buffer.length > 0) {
                         // 姓名必定在座號的前一個位置
@@ -835,7 +670,7 @@ async function processUploadedFile(file) {
             officialRoster = Array.from(nameSet);
 
             if (officialRoster.length === 0) {
-                alert("警告：系統沒有自動抓取到任何姓名！\n請確認檔案內是否有清楚的「座號」搭配「姓名」結構。");
+                alert("警告：未抓取到任何有效姓名！請確認貼上的文字包含學員姓名。");
                 return;
             }
 
