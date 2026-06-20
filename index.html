@@ -7,7 +7,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.21/mammoth.browser.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     <script>
         // 設定 PDF.js 的 Worker 路徑 (必須設定才能在前端解析 PDF)
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
@@ -114,12 +113,12 @@
         
         /* ★ 新增：檔案拖曳與上傳區塊樣式 */
         .file-upload-zone { 
-            width: 100%; padding: 30px 15px; border: 3px dashed #2980b9; border-radius: 8px; 
-            background-color: #eaf2f8; font-size: 20px; cursor: pointer; box-sizing: border-box; 
-            margin-bottom: 15px; color: #2c3e50; text-align: center; transition: all 0.3s ease;
+            width: 100%; padding: 20px; border: 2px dashed #2c3e50; border-radius: 8px; 
+            background-color: #fdfdfd; text-align: center; cursor: pointer; margin: 10px 0; 
+            font-size: 16px; color: #2c3e50; font-weight: bold;
         }
-        .file-upload-zone.dragover { background-color: #cce5ff; border-color: #0056b3; transform: scale(1.01); }
-        .file-upload-zone:hover { background-color: #d4e6f1; }
+        .file-upload-zone:hover { background-color: #ececec; }
+        .file-upload-input { display: none; }
         .file-upload-input { display: none; } /* 隱藏原生按鈕，用點擊區域觸發 */
 
         .form-group textarea { width: 100%; padding: 15px; box-sizing: border-box; border: 2px solid #ccc; border-radius: 6px; font-size: 18px; resize: vertical; background-color: #f9f9f9; }
@@ -222,15 +221,13 @@
             </div>
             
             <div class="form-group">
-                <label>【步驟一】請上傳或拖曳名冊檔案 (支援 Word / Excel / PDF)，系統將自動擷取：</label>
+                <label>請上傳名冊：</label>
                 <div id="dropZone" class="file-upload-zone" onclick="document.getElementById('rosterFileInput').click()">
-                    📂 點擊這裡選擇檔案，或直接將檔案拖曳到此處<br>
-                    <span style="font-size: 16px; color: #7f8c8d;">(支援格式：.docx, .xlsx, .xls, .csv, .pdf)</span>
+                   📂 點擊選擇 Word 或 Excel 檔案
                 </div>
-                <input type="file" id="rosterFileInput" class="file-upload-input" accept=".docx, .doc, .xlsx, .xls, .csv, .pdf">
-                
-                <textarea id="rawRosterInput" rows="5" placeholder="檔案內容解析後會顯示於此，以便您核對。您也可以手動在此貼上文字..."></textarea>
-            </div>
+                <input type="file" id="rosterFileInput" class="file-upload-input" accept=".docx, .doc, .xlsx, .xls">
+                <textarea id="rawRosterInput" rows="6" style="width:100%; margin-top:10px;" placeholder="檔案解析後的姓名將顯示於此..."></textarea>
+           </div>
 
             <button class="btn-admin-act btn-blue" onclick="processRosterText()">【步驟二】一鍵解析並啟動新班期</button>
             
@@ -317,6 +314,7 @@
     </div>
 
 <script>
+    
     // 毒素過濾器 
     function escapeHTML(str) {
         if (!str) return "";
