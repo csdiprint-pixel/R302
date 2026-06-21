@@ -496,6 +496,9 @@ function updateSingleSeatDOM(seatCode, name) {
     function startRealtimeSync() {
     if (!currentClassID) return;
     
+    // 【修復核心 1】一開始就先將 120 個空格子畫在畫面上，絕對不要等連線！
+    initializeSeatsGrid(); 
+
     const syncUrl = `${FIREBASE_URL}/room302/${currentClassID}/seats.json`;
     const eventSource = new EventSource(syncUrl);
 
@@ -503,41 +506,28 @@ function updateSingleSeatDOM(seatCode, name) {
         const data = JSON.parse(event.data);
         
         if (data && data.path === "/") {
-            if (data.data === null) {
-                alert("⚠️ 此班期已被管理員強制關閉並清除資料！自動返回首頁。");
-                delete dbTitles[currentClassID];
-                delete dbRosters[currentClassID];
-                localStorage.setItem("seat_db_titles_302", JSON.stringify(dbTitles));
-                localStorage.setItem("seat_db_rosters_302", JSON.stringify(dbRosters));
-                localStorage.removeItem(`mySeat_302_${currentClassID}`);
-                window.location.replace(window.location.pathname);
-                return;
-            }
+            // 【修復核心 2】如果收到 null，代表「目前還沒有人選位」，而不是班期被刪除了。
+            // 因此我們將它視為空物件 {}，並將現有座位狀態更新即可。
             studentFilledData = data.data || {};
             
-            // 第一次載入時先畫好格子殼，再批次填入名字
-            initializeSeatsGrid(); 
             Object.keys(studentFilledData).forEach(seatCode => {
                 updateSingleSeatDOM(seatCode, studentFilledData[seatCode]);
             });
         } else if (data && data.path) {
+            // 處理單一座位即時變動
             const seatCode = data.path.replace("/", "");
             if (seatCode) {
                 if (data.data === null) {
                     delete studentFilledData[seatCode];
-                    updateSingleSeatDOM(seatCode, null); // 只清空這一個位置
+                    updateSingleSeatDOM(seatCode, null); // 有人取消選位，清空該格子
                 } else {
                     studentFilledData[seatCode] = data.data;
-                    updateSingleSeatDOM(seatCode, data.data); // 只更新這一個位置的名字
+                    updateSingleSeatDOM(seatCode, data.data); // 更新該格子的名字
                 }
             }
         }
     };
-    fetchSeatsDataLegacy();
 }
-
-    
-
     async function fetchSeatsDataLegacy() {
         if (!currentClassID) return;
         try {
