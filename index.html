@@ -37,12 +37,26 @@
         .stage-area { display: flex; justify-content: center; align-items: center; gap: 30px; margin: 15px 0 40px 0; }
         .stage-box { border: 2px solid var(--border-color); padding: 15px 45px; font-size: 24px; font-weight: bold; background: #f2f2f2; border-radius: 4px; }
 
-        .classroom-grid { display: flex; justify-content: center; align-items: stretch; overflow-x: auto; padding-bottom: 30px; margin-top: 10px; }
+        /* 移除原本的 justify-content: center 以避免小螢幕卡邊邊 */
+        .classroom-grid { 
+            overflow-x: auto; 
+            overflow-y: hidden;
+            -webkit-overflow-scrolling: touch; 
+            padding-bottom: 30px; 
+            margin-top: 10px; 
+        }
+
+        /* 用內部 wrapper 來達成大螢幕置中、小螢幕靠左滑動不卡邊 */
+        .classroom-wrapper {
+            display: flex;
+            width: max-content;
+            margin: 0 auto;
+        }
 
         /* 302 教室專屬配置：右側門位放大 */
         .door-notice-right { width: 60px; font-size: 22px; font-weight: bold; color: #ff0000; display: flex; flex-direction: column; text-align: center; justify-content: space-between; padding-top: 5px; box-sizing: border-box; margin-left: 15px; } 
 
-        .seat-table { border-collapse: separate; border-spacing: 6px 8px; min-width: 1200px; margin: 0; }
+        .seat-table { border-collapse: separate; border-spacing: 6px 8px; margin: 0; }
         
         /* 座位放大 1.5 倍 */
         .seat-table td { 
@@ -58,6 +72,21 @@
             border-radius: 6px; 
             line-height: 1.3; 
             box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
+        }
+
+        /* 增加一層：分區標題樣式 */
+        .area-label {
+            background-color: #e8f4f8 !important;
+            color: #2c3e50 !important;
+            font-size: 22px !important;
+            font-weight: bold !important;
+            border: 2px dashed #707070 !important;
+            border-radius: 8px !important;
+            padding: 10px !important;
+            text-align: center !important;
+            cursor: default !important;
+            box-shadow: none !important;
+            height: auto !important;
         }
         
         .seat-table td.booked { background-color: var(--booked-bg); color: var(--booked-text); border-color: #8aa4b7; }
@@ -78,14 +107,14 @@
         .seat-table td.aisle {
             width: 40px; 
             background: repeating-linear-gradient(45deg, #f0f0f0, #f0f0f0 10px, #e8e8e8 10px, #e8e8e8 20px);
-            border: none; 
+            border: none !important; 
             cursor: default;
-            box-shadow: inset 0 0 5px rgba(0,0,0,0.05);
+            box-shadow: inset 0 0 5px rgba(0,0,0,0.05) !important;
             border-radius: 0;
         }
 
         .scroll-hint { text-align: center; font-size: 20px; color: #e67e22; margin-bottom: 20px; font-weight: bold; }
-        @media (min-width: 1200px) { .scroll-hint { display: none; } }
+        @media (min-width: 1300px) { .scroll-hint { display: none; } }
 
         /* 彈出視窗放大 */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 9999; }
@@ -129,89 +158,60 @@
             .main-container { box-shadow: none; padding: 0; margin: 0; }
             .seat-table td { -webkit-print-color-adjust: exact; print-color-adjust: exact; font-size: 16px; width: 80px; height: 60px;}
             .seat-table td.aisle { width: 15px; background: #eee !important; border: none; }
+            .area-label { font-size: 16px !important; padding: 5px !important; }
         }
-       /* =================================================== */
-        /* 手機版完美修復：維持電腦版座位比例與字體，僅縮窄走道 */
+
+        /* =================================================== */
+        /* 手機版完美修復：移除強制 Zoom，改用原生平滑滾動，解決卡邊角問題 */
         /* =================================================== */
         @media (max-width: 768px) {
-            /* 1. 隱藏手機版滑動提示，因為畫面已經完整呈現 */
-            .scroll-hint { display: none !important; }
-
-            /* 2. 縮窄走道：放寬座位可分配的空間 */
-            .seat-table td.aisle {
-                width: 10px !important;
-                min-width: 10px !important;
-                max-width: 10px !important;
-                padding: 0 !important;
-            }
-
-            /* 3. 強制座位表維持電腦版總寬度，確保座位與文字絕對不縮窄變形 */
-            .seat-table {
-                width: 900px !important;
-                min-width: 900px !important;
-                table-layout: fixed !important;
-            }
-
-            /* 4. 確保座位內的文字觀感與電腦版完全一致，絕不自動斷行 */
-            .seat-table td:not(.aisle) {
-                white-space: nowrap !important;
-            }
-
-            /* 5. 核心關鍵：將整個教室與講台區塊進行整體的等比例縮放 (Zoom) */
-            .classroom-grid, .stage-area {
-                width: 900px !important;
-                margin: 0 auto !important;
-            }
-
-            /* 依據不同手機螢幕寬度，給予精確的縮放比例，讓全部座位完美塞進畫面 */
-            @media (max-width: 375px) {
-                .classroom-grid, .stage-area { zoom: 0.37 !important; }
-            }
-            @media (min-width: 376px) and (max-width: 414px) {
-                .classroom-grid, .stage-area { zoom: 0.41 !important; }
-            }
-            @media (min-width: 415px) and (max-width: 440px) {
-                .classroom-grid, .stage-area { zoom: 0.44 !important; }
-            }
-            @media (min-width: 441px) and (max-width: 768px) {
-                .classroom-grid, .stage-area { zoom: 0.60 !important; }
-            }
-
-            /* 6. 優化手機版主容器，防止產生左右不必要的滾動條 */
-            .main-container {
-                padding: 10px 4px !important;
-                overflow-x: hidden !important;
+            body { padding: 5px; }
+            .scroll-hint { display: block !important; font-size: 16px; margin-bottom: 10px; color: #e67e22; }
+            
+            .main-container { padding: 15px 10px !important; overflow: hidden; }
+            
+            /* 讓表格區域可以自然橫向滾動，不再因為置中而裁切左側 */
+            .classroom-wrapper {
+                margin: 0; /* 靠左對齊，保證從最左邊開始滑動 */
+                padding-right: 20px; /* 預留右側空間 */
             }
             
-            /* 7. 導覽列按鈕適度調整，方便手機點擊 */
-            .nav-bar { padding: 12px 8px !important; }
-            .nav-bar span { font-size: 18px !important; }
-            .nav-btn { font-size: 15px !important; padding: 6px 12px !important; }
-
-            /* 8. 彈出對話視窗還原為正常比例，避免跟著被縮小 */
-            .modal-overlay { zoom: 1 !important; }
-            .modal-body {
-                width: 85% !important;
-                max-width: 360px !important;
-                padding: 20px !important;
+            .seat-table { border-spacing: 4px 6px; }
+            .seat-table td { 
+                width: 75px; 
+                height: 55px; 
+                font-size: 16px; 
+                border-width: 1px; 
+                border-radius: 4px; 
             }
-            .modal-body h3 { font-size: 22px !important; }
-            #targetSeatLabel { font-size: 24px !important; }
-            .modal-body input { font-size: 18px !important; padding: 8px !important; }
-            .btn { font-size: 18px !important; padding: 8px !important; }
+            .seat-table td.my-seat { font-size: 18px; border-width: 2px !important; }
+            .seat-table td.aisle { width: 15px !important; }
+            .seat-table td.volunteer-seat { font-size: 14px; }
+            .area-label { font-size: 16px !important; padding: 6px !important; }
+            
+            .door-notice-right { font-size: 16px; width: 40px; margin-left: 10px; }
+            .stage-area { gap: 15px; margin: 10px 0 25px 0; }
+            .stage-box { font-size: 18px; padding: 8px 20px; }
+            .class-info-header { font-size: 20px; margin-bottom: 15px; }
+            
+            .nav-bar { padding: 10px; margin: -5px -5px 15px -5px; }
+            .nav-bar span { font-size: 18px; }
+            .nav-btn { font-size: 14px; padding: 8px 12px; }
+            
+            .modal-body { width: 90%; padding: 20px; }
+            .modal-body h3 { font-size: 22px; }
+            .modal-body input { font-size: 18px; padding: 10px; }
+            .btn { font-size: 16px; padding: 10px; }
+            #targetSeatLabel { font-size: 26px !important; }
 
-            /* 9. 手機版：座位數字放大至佔格子的5分滿 (格子高度 82px，約佔 32px) */
             .seat-num, .seat-num-empty {
-                font-size: 32px !important;
+                font-size: 20px !important;
                 font-weight: 900;
                 line-height: 1;
                 display: inline-block;
                 margin-bottom: 2px;
             }
-            .seat-name {
-                font-size: 20px !important;
-                display: inline-block;
-            }
+            .seat-name { font-size: 15px !important; display: inline-block; }
         }
     </style>
 </head>
@@ -236,12 +236,14 @@
             </div>
 
             <div class="classroom-grid">
-                <table class="seat-table" id="classroomSeats">
+                <div class="classroom-wrapper">
+                    <table class="seat-table" id="classroomSeats">
                     </table>
 
-                <div class="door-notice-right">
-                    <div>前門</div>
-                    <div>後門</div>
+                    <div class="door-notice-right">
+                        <div>前門</div>
+                        <div>後門</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -583,7 +585,15 @@
         let html = "";
 
         const myBookedSeat = localStorage.getItem(`mySeat_302_${currentClassID}`);
-        const isBackend = (currentPage === "admin");
+        // 變更：改用 sessionStorage 判斷是否為管理員，確保前台也生效
+        const isAdmin = sessionStorage.getItem("isAdminAuthed_302") === "true"; 
+
+        // ★ 新增分區標題層 (colspan精準計算：左區 6個座位+2個走道=8，右區 4個座位+1個走道=5)
+        html += `<tr>
+                    <td colspan="8" class="area-label">左邊座位區 (1-6排)</td>
+                    <td class="aisle" style="background: transparent; box-shadow: none;"></td>
+                    <td colspan="5" class="area-label">右邊座位區 (7-10排)</td>
+                 </tr>`;
 
         for (let row = 1; row <= 12; row++) {
             html += "<tr>";
@@ -601,7 +611,9 @@
                         let tdClass = isMySeat ? "booked my-seat" : "booked";
                         if (isVerifyVisualOn) { tdClass = officialRoster.includes(name) ? "verified-match" : "verified-error"; }
                         let displayName = name;
-                        if (!isBackend && !isMySeat) { displayName = maskName(name); }
+                        
+                        // 變更：只要是管理員，就顯示全名不用隱藏
+                        if (!isAdmin && !isMySeat) { displayName = maskName(name); }
                         html += `<td class="${tdClass}" onclick="handleSeatClick('${seatCode}')"><span class="seat-num">${seatCode}</span><br><span class="seat-name">${displayName}</span></td>`;
                     } else {
                         html += `<td onclick="handleSeatClick('${seatCode}')"><span class="seat-num-empty">${seatCode}</span></td>`;
@@ -641,12 +653,8 @@
             currentClassID = classCode;
             classHeaderTitle = `${classCode}${className}-${formattedDate}`;
 
-            // 修改點 1：改用陣列 (Array) 儲存，這樣「小叮噹」出現幾次就會抓幾次
             const extractedNames = [];
-            
-            // 修改點 2：放寬判斷條件，支援 2~8 個字，且允許括號、符號等格式
             const nameRegex = /^(?=.*[\u4e00-\u9fa5a-zA-Z0-9]).{2,8}$/;
-            
             const excludeHeaders = ["姓名", "座號", "機關", "機關學校", "職稱", "單位", "備註", "受訓日期", "簽到", "備註欄", "報到簽名", "簽到欄"];
             const tokens = text.split(/[\s\t\n\r,，、]+/);
 
@@ -747,11 +755,14 @@
         activeSeatId = seatCode;
         
         const existingName = studentFilledData[seatCode] || "";
-        const myBookedSeat = localStorage.getItem(`mySeat_102_${currentClassID}`); 
-        const isBackend = (currentPage === "admin"); // 判斷是否為管理員後台
+        // 修正原先程式碼內錯用 102 的變數名稱問題
+        const myBookedSeat = localStorage.getItem(`mySeat_302_${currentClassID}`); 
+        
+        // 改用 sessionStorage 判斷管理員，確保前台代劃位功能生效
+        const isAdmin = sessionStorage.getItem("isAdminAuthed_302") === "true";
 
-        // 【新增攔截邏輯】如果是前台學生，且點擊的座位已有人，且不是自己的座位 -> 直接無反應不跳視窗
-        if (!isBackend && existingName && myBookedSeat !== seatCode) {
+        // 如果是前台學生，且點擊的座位已有人，且不是自己的座位 -> 直接無反應不跳視窗
+        if (!isAdmin && existingName && myBookedSeat !== seatCode) {
             return; 
         }
         
@@ -759,21 +770,31 @@
         document.getElementById("studentName").value = existingName;
         
         if (existingName) {
-            document.getElementById("studentName").disabled = true; 
-            document.getElementById("btnSubmitSeat").style.display = "none"; 
-
-            if (myBookedSeat === seatCode) {
+            if (isAdmin) {
+                // 變更：管理員點擊有人坐的位子，可以修改或取消
+                document.getElementById("studentName").disabled = false;
+                document.getElementById("btnSubmitSeat").style.display = "inline-block";
+                document.getElementById("btnSubmitSeat").innerText = "修改座位";
                 document.getElementById("btnCancelSeat").style.display = "inline-block";
-                document.getElementById("inputLabelText").innerText = "這是您登記的座位：";
+                document.getElementById("inputLabelText").innerText = "【管理員】修改或取消此座位：";
             } else {
-                document.getElementById("btnCancelSeat").style.display = "none";
-                document.getElementById("inputLabelText").innerText = "此座位已被登記：";
+                document.getElementById("studentName").disabled = true; 
+                document.getElementById("btnSubmitSeat").style.display = "none"; 
+
+                if (myBookedSeat === seatCode) {
+                    document.getElementById("btnCancelSeat").style.display = "inline-block";
+                    document.getElementById("inputLabelText").innerText = "這是您登記的座位：";
+                } else {
+                    document.getElementById("btnCancelSeat").style.display = "none";
+                    document.getElementById("inputLabelText").innerText = "此座位已被登記：";
+                }
             }
         } else {
             document.getElementById("btnCancelSeat").style.display = "none";
             document.getElementById("inputLabelText").innerText = "請填寫您的真實姓名：";
             document.getElementById("studentName").disabled = false;
             document.getElementById("btnSubmitSeat").style.display = "inline-block";
+            document.getElementById("btnSubmitSeat").innerText = "確認提交";
         }
         document.getElementById("seatModal").style.display = "flex";
     }
@@ -781,9 +802,19 @@
     function closeSelectModal() { document.getElementById("seatModal").style.display = "none"; }
 
     async function clearCurrentSeat() {
-        if (confirm(`確定要取消您的座位嗎？`)) {
+        const isAdmin = sessionStorage.getItem("isAdminAuthed_302") === "true";
+        const confirmMsg = isAdmin ? "確定要為學員取消此座位嗎？" : "確定要取消您的座位嗎？";
+
+        if (confirm(confirmMsg)) {
             delete studentFilledData[activeSeatId];
-            localStorage.removeItem(`mySeat_302_${currentClassID}`); 
+            
+            // 如果是一般學員，或是管理員剛好取消的是自己綁定的位子，才清除本機紀錄
+            if (!isAdmin) {
+                localStorage.removeItem(`mySeat_302_${currentClassID}`); 
+            } else if (localStorage.getItem(`mySeat_302_${currentClassID}`) === activeSeatId) {
+                localStorage.removeItem(`mySeat_302_${currentClassID}`);
+            }
+
             renderSeatsGrid();
             closeSelectModal();
             await updateCloudSeat(activeSeatId, null);
@@ -793,11 +824,14 @@
     async function saveStudentSeat() {
         const rawName = document.getElementById("studentName").value.trim();
         const name = escapeHTML(rawName); // 消毒處理
+        const isAdmin = sessionStorage.getItem("isAdminAuthed_302") === "true";
 
         if (!name) { alert("請輸入姓名！"); return; }
 
         const myBookedSeat = localStorage.getItem(`mySeat_302_${currentClassID}`);
-        if (myBookedSeat && myBookedSeat !== activeSeatId) {
+        
+        // 管理員不受「限選一位」的限制
+        if (!isAdmin && myBookedSeat && myBookedSeat !== activeSeatId) {
             alert("您已經在這台手機登記過座位囉！每人限選一位。");
             return;
         }
@@ -807,7 +841,8 @@
             const res = await fetch(noCacheUrl, { cache: "no-store" });
             const latestClassData = await res.json() || {};
 
-            if (latestClassData[activeSeatId]) {
+            // 管理員可強行覆寫，無搶位限制
+            if (!isAdmin && latestClassData[activeSeatId]) {
                 alert(`【位置已被搶先登記】\n請重選空位。`);
                 studentFilledData = latestClassData;
                 renderSeatsGrid();
@@ -817,7 +852,11 @@
         } catch(e) {}
 
         studentFilledData[activeSeatId] = name;
-        localStorage.setItem(`mySeat_302_${currentClassID}`, activeSeatId); 
+        
+        // 管理員代劃位不綁定本機 localStorage
+        if (!isAdmin) {
+            localStorage.setItem(`mySeat_302_${currentClassID}`, activeSeatId); 
+        }
         
         renderSeatsGrid();
         closeSelectModal();
@@ -866,7 +905,7 @@
         let matchCount = 0;
         let errorNames = [];
 
-        // 修改點 3：複製一份名單進行「消去法」，完美核實同名同姓的數量
+        // 複製一份名單進行「消去法」，完美核實同名同姓的數量
         let rosterCheckList = [...officialRoster];
 
         filledNames.forEach(name => {
